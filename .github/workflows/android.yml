@@ -5,6 +5,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Find package.json anywhere
+        id: find
+        run: |
+          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
+          echo "FOUND: $PKG"
+          DIR=$(dirname "$PKG")
+          echo "DIR=$DIR" >> $GITHUB_OUTPUT
+          echo "DIR is $DIR"
+          ls -la "$DIR"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -13,19 +24,32 @@ jobs:
           java-version: '17'
           distribution: temurin
       - uses: android-actions/setup-android@v3
-      - name: Install
-        run: npm install
-      - name: Add Android
-        run: npx cap add android
-      - name: Copy web
-        run: npx cap copy android
-      - name: Build APK
-        working-directory: android
+
+      - name: Install in nested folder
         run: |
+          cd "${{ steps.find.outputs.DIR }}"
+          npm install
+
+      - name: Add Android
+        run: |
+          cd "${{ steps.find.outputs.DIR }}"
+          npx cap add android || true
+
+      - name: Copy web
+        run: |
+          cd "${{ steps.find.outputs.DIR }}"
+          npx cap copy android
+          npx cap sync android || true
+
+      - name: Build APK
+        run: |
+          cd "${{ steps.find.outputs.DIR }}/android"
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: JaanNurie-Life-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            **/android/app/build/outputs/apk/debug/app-debug.apk
