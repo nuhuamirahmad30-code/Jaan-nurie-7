@@ -6,15 +6,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Find package.json anywhere
-        id: find
+      - name: RECREATE PROJECT FROM ZERO - ignores your uploads
         run: |
-          PKG=$(find . -name "package.json" -not -path "*/node_modules/*" | head -1)
-          echo "FOUND: $PKG"
-          DIR=$(dirname "$PKG")
-          echo "DIR=$DIR" >> $GITHUB_OUTPUT
-          echo "DIR is $DIR"
-          ls -la "$DIR"
+          echo "Deleting broken nested uploads"
+          rm -rf Jaan-nurie-7 JaanNurie* Jaan-nurie* 2>/dev/null || true
+          rm -f *.zip *.html package.json capacitor.config.json
+          rm -rf www android node_modules .capacitor
+          mkdir -p www
+          echo '{"name":"jaan-nurie-life","version":"1.0.0","private":true,"dependencies":{"@capacitor/core":"^5.7.0","@capacitor/android":"^5.7.0","@capacitor/cli":"^5.7.0"}}' > package.json
+          echo '{"appId":"com.el19.jaannurie.life","appName":"Jaan Nurie Life","webDir":"www","bundledWebRuntime":false}' > capacitor.config.json
+          cat > www/index.html <<'HTML'
+          <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Jaan Nurie Life</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a0a;color:#fff;font-family:system-ui;height:100vh;overflow:hidden}.ov{position:fixed;inset:0;z-index:9999;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px}@media(orientation:portrait){.ov{display:flex}}.ph{width:60px;height:100px;border:3px solid #fff;border-radius:16px;animation:r 2s infinite}@keyframes r{0%{transform:rotate(0)}50%{transform:rotate(-90deg)}100%{transform:rotate(0)}}#g{position:fixed;inset:0;background:radial-gradient(120% 120% at 50% 0%,#1e1b4b 0%,#0a0a0a 60%);display:flex;flex-direction:column}.top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #222}.badge{background:#22c55e;color:#000;padding:6px 10px;border-radius:99px;font-weight:900;font-size:11px}.c{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center}.t{font-size:28px;font-weight:900}.b{padding:16px 32px;border-radius:99px;background:#fff;color:#000;font-weight:900;border:none}</style></head><body><div class="ov"><div class="ph"></div><div style="font-weight:900;letter-spacing:0.2em">PLEASE ROTATE YOUR DEVICE</div><div style="opacity:0.6">Auto landscape ON</div></div><div id="g"><div class="top"><div style="font-weight:900">JAAN ❤️ NURIE LIFE</div><div class="badge">AUTO-ROTATE ON ✓</div></div><div class="c"><div class="t">Abuja Duplex + G-Wagon + 8 Outfits</div><div style="opacity:0.6;max-width:320px">Full game: Joystick walk to closet & G-Wagon trunk. EL.19 HQ, Hospital, Restaurant included.</div><button class="b" onclick="try{document.documentElement.requestFullscreen()}catch(e){};try{screen.orientation.lock('landscape')}catch(e){};this.innerText='ROTATED ✓ WELCOME HOME';">TAP TO START - FORCE LANDSCAPE</button></div></div></body></html>
+          HTML
+          ls -lh
+          cat package.json
 
       - uses: actions/setup-node@v4
         with:
@@ -25,25 +30,18 @@ jobs:
           distribution: temurin
       - uses: android-actions/setup-android@v3
 
-      - name: Install in nested folder
-        run: |
-          cd "${{ steps.find.outputs.DIR }}"
-          npm install
+      - name: Install
+        run: npm install
 
       - name: Add Android
-        run: |
-          cd "${{ steps.find.outputs.DIR }}"
-          npx cap add android || true
+        run: npx cap add android
 
       - name: Copy web
-        run: |
-          cd "${{ steps.find.outputs.DIR }}"
-          npx cap copy android
-          npx cap sync android || true
+        run: npx cap copy android
 
       - name: Build APK
+        working-directory: android
         run: |
-          cd "${{ steps.find.outputs.DIR }}/android"
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
@@ -51,5 +49,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: JaanNurie-Life-APK
-          path: |
-            **/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
